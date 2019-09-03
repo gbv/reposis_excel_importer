@@ -160,3 +160,4 @@ cmo-module/node/
 
 # fileupload workaround
 cmo-webapp/src/main/webapp/fileupload.xml
+excelparser.iml

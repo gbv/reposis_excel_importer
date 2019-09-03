@@ -109,6 +109,8 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                 new File(properties.getProperty("sourcePath") + "SWWerke.xlsx")));
             XSSFWorkbook ggGeo = new XSSFWorkbook(new FileInputStream(
                 new File(properties.getProperty("sourcePath") + "GeoDaten.xlsx")));
+            XSSFWorkbook ggZeit = new XSSFWorkbook(new FileInputStream(
+                new File(properties.getProperty("sourcePath") + "SWZeit.xlsx")));
             XSSFWorkbook ggInstitutionen = new XSSFWorkbook(new FileInputStream(
                 new File(properties.getProperty("sourcePath") + "Rechte.xlsx")));
             XSSFWorkbook ggPersonenAlle = new XSSFWorkbook(new FileInputStream(
@@ -127,6 +129,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
             XSSFSheet swSach = ggSach.getSheetAt(0);
             XSSFSheet swWerke = ggWerke.getSheetAt(0);
             XSSFSheet geoDaten = ggGeo.getSheetAt(0);
+            XSSFSheet zeitDaten = ggZeit.getSheetAt(0);
             XSSFSheet institutionen = ggInstitutionen.getSheetAt(0);
             XSSFSheet personenAlle = ggPersonenAlle.getSheetAt(0);
             XSSFSheet personenNeu = ggPersonenNeu.getSheetAt(0);
@@ -212,9 +215,9 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                             case "LängeKopie":
                                 String date = cell.getDateCellValue().toString();
                                 String[] parts = date.split(" ");
-                                String time = parts[3];
-                                time = time + ".000";
-                                modsPhysicalDescription(mcrmodsWrapper, time);
+                                String copyTime = parts[3];
+                                copyTime = copyTime + ".000";
+                                modsPhysicalDescription(mcrmodsWrapper, copyTime);
                                 break;
                             case "Betriebsart":
                                 modsClassification(mcrmodsWrapper, cell, "Betriebsarten");
@@ -277,27 +280,11 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                             case "Userfeld":
                                 modsNote(mcrmodsWrapper, cell, "user");
                                 break;
-                            case "OrgLänge":
-                                String dateLength = cell.getDateCellValue().toString();
-                                String[] dateParts = dateLength.split(" ");
-                                String originTime = dateParts[3];
-                                time = originTime + ".000";
-
-                                String qualityInfo = getCellContent(tableHeaderMap, row, "Tonqualität")
-                                    .map(XSSFCell::getStringCellValue)
-                                    .orElseGet(() -> "");
-
-                                String playableFormat = getCellContent(tableHeaderMap, row, "Mediensignatur")
-                                    .map(XSSFCell::getStringCellValue)
-                                    .orElseGet(() -> "");
-
-                                modsPhysicalDescription(mcrmodsWrapper, time, qualityInfo, playableFormat);
-                                break;
                             case "Aufnahmeort":
                                 String dateCaptured;
                                 String dateBroadcast;
                                 String place;
-                                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_DATE_TIME;
+                                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
                                 dateCaptured = getCellContent(tableHeaderMap, row, "Aufnahmedatum")
                                     .map(XSSFCell::getDateCellValue)
@@ -307,6 +294,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                                     .map(LocalDate::atStartOfDay)
                                     .map(dateTimeFormatter::format)
                                     .orElse("");
+
 
                                 dateBroadcast = getCellContent(tableHeaderMap, row, "DatumErstsendung")
                                     .map(XSSFCell::getDateCellValue)
@@ -338,19 +326,14 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                                 modsSubject(mcrmodsWrapper, null, "geographic", "GeoDaten",
                                     checkSWTitle(geoDaten, titlepartsGeo));
                                 break;
+                            case "SWZeit":
+                                LOGGER.info("Hallo welt!");
+                                String swZeitContent = cell.getStringCellValue();
+                                String[] titlepartsZeit = swZeitContent.split("; ");
+                                modsSubject(mcrmodsWrapper, null, "temporal", "SWZeit",
+                                    checkSWTitle(zeitDaten, titlepartsZeit));
+                                break;
                         }
-                        // the else if sets the values if the switch argument is null but you have to check for other column's
-                    } else if ("OrgLänge".equals(columnName)) {
-                        String qualityInfo = getCellContent(tableHeaderMap, row, "Tonqualität")
-                            .map(XSSFCell::getStringCellValue)
-                            .orElseGet(() -> "");
-
-                        String playableFormat = getCellContent(tableHeaderMap, row, "Mediensignatur")
-                            .map(XSSFCell::getStringCellValue)
-                            .orElseGet(() -> "");
-
-                        modsPhysicalDescription(mcrmodsWrapper, null, qualityInfo, playableFormat);
-
                     } else if ("Mediensignatur".equals(columnName)) {
                         modsGenre(mcrmodsWrapper, "audio", "sound recording");
 
@@ -358,7 +341,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                         String dateCaptured;
                         String dateBroadcast;
                         String place = "";
-                        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ISO_DATE_TIME;
+                        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
 
                         dateCaptured = getCellContent(tableHeaderMap, row, "Aufnahmedatum")
                             .map(XSSFCell::getDateCellValue)
@@ -366,6 +349,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                             .map(s -> s.atZone(ZoneId.systemDefault()))
                             .map(ZonedDateTime::toLocalDate)
                             .map(LocalDate::atStartOfDay)
+                            .map(localDateTime->localDateTime.withNano(0))
                             .map(dateTimeFormatter::format)
                             .orElse("");
 
@@ -375,6 +359,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                             .map(s -> s.atZone(ZoneId.systemDefault()))
                             .map(ZonedDateTime::toLocalDate)
                             .map(LocalDate::atStartOfDay)
+                            .map(localDateTime->localDateTime.withNano(0))
                             .map(dateTimeFormatter::format)
                             .orElse("");
 
@@ -382,6 +367,25 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                     }
 
                 }
+                String time = getCellContent(tableHeaderMap, row, "OrgLänge")
+                    .map(XSSFCell::getDateCellValue)
+                    .map(t -> {
+                        String[] dateParts = t.toString().split(" ");
+                        String originTime = dateParts[3];
+                        return originTime + ".000";
+                    }).orElse(null);
+
+
+                String qualityInfo = getCellContent(tableHeaderMap, row, "Tonqualität")
+                    .map(XSSFCell::getStringCellValue)
+                    .orElseGet(() -> "");
+
+                Boolean orgAnalog = getCellContent(tableHeaderMap, row, "OrgAnalog")
+                    .map(XSSFCell::getBooleanCellValue)
+                    .orElse(false);
+
+                modsPhysicalDescription(mcrmodsWrapper, time, qualityInfo, orgAnalog);
+
                 modsClassification(mcrmodsWrapper, getGGIDContent(institutionen, i), "Sender");
                 String ggID = getCellContent(tableHeaderMap, row, "GGID")
                     .map(XSSFCell::getStringCellValue)
@@ -664,7 +668,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 	public static Element modsTitle(Cell title, Cell subTitle, String type) {
 		Element titleInfo = new Element("titleInfo", MCRConstants.MODS_NAMESPACE)
 							.setAttribute("lang", "de", Namespace.XML_NAMESPACE);
-		if(type != null) {
+		if(type != null && !type.equals("reference")) {
 			titleInfo.setAttribute("type", type);
 		}
 		titleInfo.addContent(new Element("title", MCRConstants.MODS_NAMESPACE).setText(title.getStringCellValue()));
@@ -720,7 +724,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 		mw.addElement(description);
 	}
 
-	public static void modsPhysicalDescription(MCRMODSWrapper mw, String time, String text, String format) {
+	public static void modsPhysicalDescription(MCRMODSWrapper mw, String time, String text, boolean orgAnalog) {
 		Element description = new Element("physicalDescription", MCRConstants.MODS_NAMESPACE);
 		if (time != null) {
 			description.addContent(new Element("extent", MCRConstants.MODS_NAMESPACE)
@@ -730,11 +734,14 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 			description.addContent(new Element("note", MCRConstants.MODS_NAMESPACE)
 				.setAttribute("type", "quality").setText(text));
 		}
-		if (format.equals("AUD") || format.equals(null)) {
+		if (orgAnalog) {
 			description.addContent(new Element("digitalOrigin", MCRConstants.MODS_NAMESPACE)
 			.setText("reformatted digital"));
 		}
-		mw.addElement(description);
+
+		if(description.getContentSize()>0){
+            mw.addElement(description);
+        }
 	}
 
 	public static void modsName(MCRMODSWrapper mw, Map<String, List<RolePersonTuple>> processRoleTable, String type, String id) {
@@ -853,20 +860,21 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
     public static void modsOriginInfo(MCRMODSWrapper mw, String dateCaptured, String dateBroadcast, String eventType,
         String place) {
             Element originInfo = new Element("originInfo", MCRConstants.MODS_NAMESPACE).setAttribute("eventType", eventType);
-            if(dateBroadcast != "")
+            if(!dateBroadcast.isEmpty())
             originInfo.addContent(new Element("dateIssued", MCRConstants.MODS_NAMESPACE).setAttribute("encoding", "w3cdtf")
             .setText(dateBroadcast));
-            if(dateCaptured != "")
+            if(!dateCaptured.isEmpty())
             originInfo.addContent(new Element("dateCaptured", MCRConstants.MODS_NAMESPACE).setAttribute("encoding", "w3cdtf")
             .setText(dateCaptured));
-            if(place != "") {
+            if(!place.isEmpty()) {
                 Element modsPlace = new Element("place", MCRConstants.MODS_NAMESPACE);
                 modsPlace.addContent(new Element("placeTerm", MCRConstants.MODS_NAMESPACE).setAttribute("type", "text")
                     .setText(place));
                 originInfo.addContent(modsPlace);
             }
-            mw.addElement(originInfo);
-
+            if(originInfo.getContentSize()>0){
+                mw.addElement(originInfo);
+            }
     }
 
 	public static void modsSubject(MCRMODSWrapper mw, String language, String modsName, String type, HashMap<String, String> values){
