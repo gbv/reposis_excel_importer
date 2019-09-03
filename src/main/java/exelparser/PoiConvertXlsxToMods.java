@@ -246,7 +246,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                             case "OrgTonträger":
                                 if (cell.getCellTypeEnum() == CellType.NUMERIC) {
                                     cell.setCellType(CellType.STRING);
-                                    modsClassification(mcrmodsWrapper, cell, "OrgTonID");
+                                    modsClassification(mcrmodsWrapper, cell, "OrgTonTID");
                                 }
                                 break;
                             case "Schriftverweis":
@@ -730,14 +730,17 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 			description.addContent(new Element("extent", MCRConstants.MODS_NAMESPACE)
 				.setAttribute("unit", "lenght").setText(time));
 		}
-		if(text != null) {
+		if(text != null && !text.isEmpty()) {
 			description.addContent(new Element("note", MCRConstants.MODS_NAMESPACE)
 				.setAttribute("type", "quality").setText(text));
 		}
 		if (orgAnalog) {
 			description.addContent(new Element("digitalOrigin", MCRConstants.MODS_NAMESPACE)
 			.setText("reformatted digital"));
-		}
+		} else {
+            description.addContent(new Element("digitalOrigin", MCRConstants.MODS_NAMESPACE)
+                .setText("born digital"));
+        }
 
 		if(description.getContentSize()>0){
             mw.addElement(description);
