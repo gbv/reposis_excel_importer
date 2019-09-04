@@ -728,7 +728,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 		Element description = new Element("physicalDescription", MCRConstants.MODS_NAMESPACE);
 		if (time != null) {
 			description.addContent(new Element("extent", MCRConstants.MODS_NAMESPACE)
-				.setAttribute("unit", "lenght").setText(time));
+				.setAttribute("unit", "length").setText(time));
 		}
 		if(text != null && !text.isEmpty()) {
 			description.addContent(new Element("note", MCRConstants.MODS_NAMESPACE)
