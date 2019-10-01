@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -186,6 +187,27 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
         mw.setElement("classification", null, attributes);
     }
 
+    public static void modsClassification(MCRMODSWrapper mw, Set<String> ids, String label) {
+        ids.forEach((id) -> {
+            // make sure that the numeric number will be displayed without .0
+            HashMap<String, String> attributes = new HashMap<>();
+            if (label.contains("Sender")) {
+                attributes
+                    .put("authorityURI", "http://webdatenbank.grass-medienarchiv.de/classifications/Institutionen");
+                attributes.put("valueURI",
+                    "http://webdatenbank.grass-medienarchiv.de/classifications/" + "Institutionen" + "#" + id);
+            } else {
+                attributes.put("authorityURI", "http://webdatenbank.grass-medienarchiv.de/classifications/" + label);
+                attributes
+                    .put("valueURI", "http://webdatenbank.grass-medienarchiv.de/classifications/" + label + "#" + id);
+            }
+            attributes.put("displayLabel", label);
+
+            mw.setElement("classification", null, attributes);
+        });
+
+    }
+
     public static void modsIdentifier(MCRMODSWrapper mw, String type, String text) {
         Element identifier = new Element("identifier", MCRConstants.MODS_NAMESPACE)
             .setAttribute("type", type).setText(text);
@@ -227,6 +249,11 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
     public static void modsName(MCRMODSWrapper mw, Map<String, List<RolePersonTuple>> processRoleTable, String type,
         String id) {
         List<RolePersonTuple> rolePersonTuplesList = processRoleTable.get(id);
+        if (rolePersonTuplesList == null) {
+            LOGGER.error("Person mit rolle: " + id + " nicht gefunden!");
+            return;
+        }
+
         Map<String, List<String>> roleMappingTable = new HashMap<>();
 
         List<String> roleMappingContributor = new ArrayList<>(Arrays.asList("Contributor", "ctb"));
@@ -483,11 +510,16 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
             mcrmodsWrapper.getMCRObject().setVersion("test"); //set MyCoRe-Version
             mcrmodsWrapper.setMODS(new Element("mods", MCRConstants.MODS_NAMESPACE));
 
+            final HashMap<String, Set<String>> dbNummerInstMap = getGGIDInstMap(institutionen);
+
             Map<Integer, String> tableHeaderMap = new HashMap<>();
             XSSFRow rowHeader = archivDaten.getRow(0);
             for (Cell c : rowHeader) {
                 tableHeaderMap.put(c.getColumnIndex(), c.getStringCellValue());
             }
+
+            final Map<String, List<RolePersonTuple>> processRoleTable = processRoleTable(personenAlle,
+                personenNeu, personenRollen);
 
             for (int i = 1; i < archivDaten.getPhysicalNumberOfRows(); i++) {
                 String formatted = String.format("%08d", i); //creates an ongoing id, like 00000001 ... 00000122 ...
@@ -556,7 +588,6 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                                 modsClassification(mcrmodsWrapper, cell, "Praesentation");
                                 break;
                             case "LängeKopie":
-                                LOGGER.info("address:" + cell.getAddress().toString());
                                 String time = cell.getStringCellValue() + ".000";
                                 modsPhysicalDescription(mcrmodsWrapper, time);
                                 break;
@@ -723,13 +754,20 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
 
                 modsPhysicalDescription(mcrmodsWrapper, time, qualityInfo, orgAnalog);
 
-                modsClassification(mcrmodsWrapper, getGGIDContent(institutionen, i), "Sender");
                 String ggID = getCellContent(tableHeaderMap, row, "GGID")
                     .map(XSSFCell::getStringCellValue)
                     .orElse("");
+                //String dbID = getCellContent(tableHeaderMap, row, "DBNummerNeu")
+                //    .map(XSSFCell::getStringCellValue)
+                //    .orElse("");
+                final Set<String> ids = dbNummerInstMap.get(ggID);
+                if(ids!=null) {
+                    modsClassification(mcrmodsWrapper, ids, "Sender");
+                }
+
                 modsSubjectName(mcrmodsWrapper, proccessSWPerson(swPersonen, personenNeu, ggID), "personal");
                 try {
-                    modsName(mcrmodsWrapper, processRoleTable(personenAlle, personenNeu, personenRollen), "personal",
+                    modsName(mcrmodsWrapper, processRoleTable, "personal",
                         ggID);
                 } catch (Exception ex) {
                     LOGGER.warn(ex);
@@ -763,24 +801,39 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
             .filter(Objects::nonNull);
     }
 
-    private Cell getGGIDContent(XSSFSheet table, Integer id) {
-        Cell value = null;
-        Map<Integer, String> tableHeaderMap = new HashMap<>();
+    private HashMap<String, Set<String>> getGGIDInstMap(XSSFSheet table) {
+        Map<Integer, String> idHeaderMap = new HashMap<>();
+        Map<String, Integer> headerIDMap = new HashMap<>();
         XSSFRow rowHeader = table.getRow(0);
         for (Cell c : rowHeader) {
-            tableHeaderMap.put(c.getColumnIndex(), c.getStringCellValue());
+            idHeaderMap.put(c.getColumnIndex(), c.getStringCellValue());
+            headerIDMap.put(c.getStringCellValue(), c.getColumnIndex());
         }
-        XSSFRow row = table.getRow(id);
-        for (int columnIndex = 0; columnIndex < row.getLastCellNum(); columnIndex++) {
-            Cell cell = row.getCell(columnIndex);
-            String columnName = tableHeaderMap.get(columnIndex);
-            if (cell != null) {
-                if (columnName.contains("OrgID")) {
-                    value = row.getCell(columnIndex + 1);
-                }
+
+        final HashMap<String, Set<String>> orgIDRechteInstitMap = new HashMap<String, Set<String>>();
+        table.forEach(row -> {
+            if (row.getRowNum() == 1) {
+                return;
             }
-        }
-        return value;
+
+            final Cell orgIDCell = row.getCell(headerIDMap.get("OrgID"));
+            final Cell institIDCell = row.getCell(headerIDMap.get("RechteInstit"));
+
+            if (orgIDCell != null && institIDCell != null) {
+                if (orgIDCell.getCellTypeEnum() == CellType.NUMERIC) {
+                    orgIDCell.setCellType(CellType.STRING);
+                }
+                if (institIDCell.getCellTypeEnum() == CellType.NUMERIC) {
+                    institIDCell.setCellType(CellType.STRING);
+                }
+                final String orgID = orgIDCell.toString();
+                final String institID = institIDCell.toString();
+
+                final Set<String> institIds = orgIDRechteInstitMap.computeIfAbsent(orgID, (a) -> new HashSet<>());
+                institIds.add(institID);
+            }
+        });
+        return orgIDRechteInstitMap;
     }
 
     private Map<String, List<RolePersonTuple>> processRoleTable(XSSFSheet personAll, XSSFSheet personNeu,
@@ -800,11 +853,9 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
             Cell roleCell = row.getCell(tableHeaderMap.get("Rolle"));
             Cell persIDCell = row.getCell(tableHeaderMap.get("PersonenID"));
             if (persIDCell == null) {
-                LOGGER.warn("Missing PersonID: " + persIDCell);
                 continue;
             }
             if (roleCell == null) {
-                LOGGER.warn("Missing Role: " + roleCell);
                 continue;
             }
             orgDatCell.setCellType(CellType.STRING);
