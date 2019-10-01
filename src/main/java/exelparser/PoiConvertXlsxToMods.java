@@ -561,6 +561,9 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                                 modsNameEditor(mcrmodsWrapper, cell, editorName);
                                 break;
                             case "Anmerkungen":
+                                modsNote(mcrmodsWrapper, cell, "mcr_intern");
+                                break;
+                            case "AnmerkungExtern":
                                 modsNote(mcrmodsWrapper, cell, "content");
                                 break;
                             case "Tonträger":
