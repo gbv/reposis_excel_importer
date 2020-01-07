@@ -449,7 +449,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
         if (type.contains("restriction on access")) {
             Element accessCondition = new Element("accessCondition", MCRConstants.MODS_NAMESPACE)
                 .setAttribute("type", type).setAttribute("href",
-                    "http://webdatenbank.grass-medienarchiv.de/classifications/mir_access#intern",
+                    "http://webdatenbank.grass-medienarchiv.de/classifications/mir_access#unlimited",
                     MCRConstants.XLINK_NAMESPACE);
             mw.addElement(accessCondition);
         }
@@ -587,7 +587,7 @@ public class PoiConvertXlsxToMods extends MCRTestCase {
                                     modsIdentifier(mcrmodsWrapper, "intern", cell.getStringCellValue());
                                 }
                                 break;
-                            case "Präsentation":
+                            case "Senta": // Workaround: soll eigentlich "Präsentation" sein, das greift aber nicht. Ich habe die Spalte im Excel ebenfalls umbenannt, nun klappt es
                                 modsClassification(mcrmodsWrapper, cell, "Praesentation");
                                 break;
                             case "LängeKopie":
